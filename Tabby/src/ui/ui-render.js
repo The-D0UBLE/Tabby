@@ -1,8 +1,10 @@
 /**
  * @module ui-render
  * Contains DOM rendering logic for groups, folders, and tabs.
- *
- * Adds inline rename functionality for groups and folders.
+ * Features:
+ *  - filtering (search) and sorting for groups & folders (exported setters)
+ *  - inline rename for groups and folders (uses renameGroup / renameFolder from tabManager)
+ *  - stable full re-renders always target top-level containers to avoid DOM nesting bugs
  */
 
 import { storageData, saveStorage } from '../background/storage.js';
@@ -15,77 +17,105 @@ import {
   renameFolder
 } from '../background/tabManager.js';
 
-/**
- * Keeps track of expanded groups and folders state for UI.
- */
+/* ---------------------------
+   Filter & sort state + setters
+   --------------------------- */
+let groupFilter = '';
+let folderFilter = '';
+let groupSortMode = 'alpha-asc';   // 'alpha-asc' | 'alpha-desc' | 'size-asc' | 'size-desc'
+let folderSortMode = 'alpha-asc';  // 'alpha-asc' | 'alpha-desc' | 'size-asc' | 'size-desc'
+
+export function setGroupFilter(s) { groupFilter = (s || '').toString().trim().toLowerCase(); }
+export function setFolderFilter(s) { folderFilter = (s || '').toString().trim().toLowerCase(); }
+export function setGroupSort(mode) { groupSortMode = mode || 'alpha-asc'; }
+export function setFolderSort(mode) { folderSortMode = mode || 'alpha-asc'; }
+
+/* ---------------------------
+   Helpers: sorting functions
+   --------------------------- */
+function sortNamesAlpha(names, asc = true) {
+  return names.sort((a, b) => {
+    const A = a.toLowerCase();
+    const B = b.toLowerCase();
+    if (A < B) return asc ? -1 : 1;
+    if (A > B) return asc ? 1 : -1;
+    return 0;
+  });
+}
+
+function sortGroupList(groupNames) {
+  const mode = groupSortMode;
+  if (mode === 'alpha-asc') return sortNamesAlpha(groupNames.slice(), true);
+  if (mode === 'alpha-desc') return sortNamesAlpha(groupNames.slice(), false);
+  if (mode === 'size-asc') {
+    return groupNames.slice().sort((a, b) => {
+      const asz = (storageData.groups[a] || []).length;
+      const bsz = (storageData.groups[b] || []).length;
+      if (asz !== bsz) return asz - bsz;
+      return a.localeCompare(b);
+    });
+  }
+  if (mode === 'size-desc') {
+    return groupNames.slice().sort((a, b) => {
+      const asz = (storageData.groups[a] || []).length;
+      const bsz = (storageData.groups[b] || []).length;
+      if (asz !== bsz) return bsz - asz;
+      return a.localeCompare(b);
+    });
+  }
+  return groupNames.slice();
+}
+
+function sortFolderList(folderNames) {
+  const mode = folderSortMode;
+  if (mode === 'alpha-asc') return sortNamesAlpha(folderNames.slice(), true);
+  if (mode === 'alpha-desc') return sortNamesAlpha(folderNames.slice(), false);
+  if (mode === 'size-asc') {
+    return folderNames.slice().sort((a, b) => {
+      const asz = (storageData.folders[a] || []).length;
+      const bsz = (storageData.folders[b] || []).length;
+      if (asz !== bsz) return asz - bsz;
+      return a.localeCompare(b);
+    });
+  }
+  if (mode === 'size-desc') {
+    return folderNames.slice().sort((a, b) => {
+      const asz = (storageData.folders[a] || []).length;
+      const bsz = (storageData.folders[b] || []).length;
+      if (asz !== bsz) return bsz - asz;
+      return a.localeCompare(b);
+    });
+  }
+  return folderNames.slice();
+}
+
+/* ---------------------------
+   Expanded state
+   --------------------------- */
 const expandedGroups = new Set();
-const expandedFolderGroups = new Map();  // folderName => Set of expanded groupNames
+const expandedFolderGroups = new Map(); // folderName => Set of groupNames
 const expandedFolders = new Set();
 
 function getExpandedFolderGroups(folderName) {
-  if (!expandedFolderGroups.has(folderName)) {
-    expandedFolderGroups.set(folderName, new Set());
-  }
+  if (!expandedFolderGroups.has(folderName)) expandedFolderGroups.set(folderName, new Set());
   return expandedFolderGroups.get(folderName);
 }
 
-/**
- * Renders the list of open tabs in the popup.
- * @param {HTMLElement} tabListElement 
- */
-export function renderOpenTabs(tabListElement) {
-  tabListElement.innerHTML = '';
-  chrome.tabs.query({ currentWindow: true }, tabs => {
-    tabs.forEach(tab => {
-      const li = document.createElement('li');
-      li.textContent = tab.title || tab.url;
-      li.setAttribute('draggable', 'true');
-
-      const tabObj = { title: tab.title || tab.url, url: tab.url };
-      li.dataset.tab = JSON.stringify(tabObj);
-
-      li.addEventListener('dragstart', e => {
-        e.dataTransfer.setData('application/json', li.dataset.tab);
-      });
-      tabListElement.appendChild(li);
-    });
-  });
-}
-
-/** Render all groups in the main groups panel */
-export function renderGroups(groupListElement) {
-  groupListElement.innerHTML = '';
-  Object.keys(storageData.groups).sort().forEach(groupName => {
-    const li = createGroupListItemForGroupsPanel(groupName, storageData.groups[groupName]);
-    groupListElement.appendChild(li);
-  });
-}
-
-/** Render all folders in the folders panel */
-export function renderFolders(folderListElement) {
-  folderListElement.innerHTML = '';
-  Object.keys(storageData.folders).sort().forEach(folderName => {
-    const li = createFolderListItem(folderName, storageData.folders[folderName]);
-    folderListElement.appendChild(li);
-  });
-}
-
-/**
- * Helper: replace a name span with an inline input for editing.
- * Calls the provided `onSave(newValue)` when user confirms (Enter or blur).
- * Uses Escape to cancel.
- */
+/* ---------------------------
+   Utility: inline editor for rename
+   --------------------------- */
 function createInlineEditor(initialValue, onSave, onCancel) {
   const input = document.createElement('input');
   input.type = 'text';
   input.value = initialValue;
   input.className = 'inline-rename-input';
+  // Lightweight inline styles — you can move these to CSS if you prefer
   input.style.padding = '6px 10px';
   input.style.borderRadius = '8px';
   input.style.border = '1px solid rgba(150,120,190,0.25)';
   input.style.fontSize = '0.95rem';
   input.style.width = '100%';
-  // Handle keys
+
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -101,22 +131,74 @@ function createInlineEditor(initialValue, onSave, onCancel) {
       if (onCancel) onCancel();
       return;
     }
-    if (newVal.length === 0) {
-      // Let caller handle empty-name validation
-      if (onSave) onSave(newVal);
-      return;
-    }
     if (onSave) onSave(newVal);
   });
   return input;
 }
 
-/**
- * Create a group list item (standalone/groups panel).
- * @param {string} groupName 
- * @param {Array} tabs 
- * @returns {HTMLElement}
- */
+/* ---------------------------
+   Render: Open Tabs
+   --------------------------- */
+export function renderOpenTabs(tabListElement) {
+  tabListElement.innerHTML = '';
+  chrome.tabs.query({ currentWindow: true }, tabs => {
+    tabs.forEach(tab => {
+      const li = document.createElement('li');
+      li.textContent = tab.title || tab.url;
+      li.setAttribute('draggable', 'true');
+      const tabObj = { title: tab.title || tab.url, url: tab.url };
+      li.dataset.tab = JSON.stringify(tabObj);
+      li.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('application/json', li.dataset.tab);
+      });
+      tabListElement.appendChild(li);
+    });
+  });
+}
+
+/* ---------------------------
+   Render: Groups (top-level panel)
+   --------------------------- */
+export function renderGroups(groupListElement) {
+  groupListElement.innerHTML = '';
+  const names = Object.keys(storageData.groups || {});
+
+  const filtered = names.filter(n => {
+    if (!groupFilter) return true;
+    return n.toLowerCase().includes(groupFilter);
+  });
+
+  const sorted = sortGroupList(filtered);
+
+  sorted.forEach(groupName => {
+    const li = createGroupListItemForGroupsPanel(groupName, storageData.groups[groupName]);
+    groupListElement.appendChild(li);
+  });
+}
+
+/* ---------------------------
+   Render: Folders (top-level panel)
+   --------------------------- */
+export function renderFolders(folderListElement) {
+  folderListElement.innerHTML = '';
+  const names = Object.keys(storageData.folders || {});
+
+  const filtered = names.filter(n => {
+    if (!folderFilter) return true;
+    return n.toLowerCase().includes(folderFilter);
+  });
+
+  const sorted = sortFolderList(filtered);
+
+  sorted.forEach(folderName => {
+    const li = createFolderListItem(folderName, storageData.folders[folderName]);
+    folderListElement.appendChild(li);
+  });
+}
+
+/* ---------------------------
+   DOM item creators (groups panel)
+   --------------------------- */
 function createGroupListItemForGroupsPanel(groupName, tabs) {
   const li = document.createElement('li');
 
@@ -124,7 +206,6 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
   const headerRow = document.createElement('div');
   headerRow.classList.add('header-row');
 
-  // Caret for expand/collapse groups panel
   const caret = document.createElement('span');
   caret.textContent = expandedGroups.has(groupName) ? '▼' : '▶';
   caret.className = 'caret';
@@ -138,7 +219,6 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
   });
   headerRow.appendChild(caret);
 
-  // Group name clickable
   const nameSpan = document.createElement('span');
   nameSpan.textContent = groupName;
   nameSpan.classList.add('name');
@@ -151,11 +231,9 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
   });
   headerRow.appendChild(nameSpan);
 
-  // Buttons container
   const buttonsDiv = document.createElement('div');
   buttonsDiv.classList.add('buttons');
 
-  // Open group button (open all tabs)
   const openBtn = document.createElement('button');
   openBtn.className = 'open-btn';
   openBtn.textContent = chrome.i18n.getMessage('openButtonText');
@@ -166,21 +244,17 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
   });
   buttonsDiv.appendChild(openBtn);
 
-  // Rename group button
+  // Rename button
   const renameBtn = document.createElement('button');
   renameBtn.className = 'rename-btn';
   renameBtn.textContent = 'Rename';
   renameBtn.title = 'Rename group';
   renameBtn.addEventListener('click', e => {
     e.stopPropagation();
-    // Replace nameSpan with input
     const parent = nameSpan.parentElement;
-    const currentText = groupName;
-    const input = createInlineEditor(currentText, (newName) => {
-      // onSave
+    const input = createInlineEditor(groupName, (newName) => {
       if (!newName) {
         alert(chrome.i18n.getMessage('enterGroupName'));
-        // re-render to restore
         const groupList = document.getElementById('group-list');
         if (groupList) renderGroups(groupList);
         return;
@@ -192,12 +266,10 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
         if (groupList) renderGroups(groupList);
         if (folderList) renderFolders(folderList);
       } else {
-        // renameGroup already showed alert for conflict
         const groupList = document.getElementById('group-list');
         if (groupList) renderGroups(groupList);
       }
     }, () => {
-      // onCancel
       const groupList = document.getElementById('group-list');
       if (groupList) renderGroups(groupList);
     });
@@ -207,7 +279,6 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
   });
   buttonsDiv.appendChild(renameBtn);
 
-  // Delete group button
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'delete-group-btn delete-btn';
   deleteBtn.textContent = chrome.i18n.getMessage('deleteButtonText');
@@ -222,7 +293,7 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
 
   headerRow.appendChild(buttonsDiv);
 
-  // Make group draggable (to folders)
+  // Make header draggable for moving into folders
   headerRow.setAttribute('draggable', 'true');
   headerRow.addEventListener('dragstart', e => {
     e.dataTransfer.setData('text/plain', groupName);
@@ -231,15 +302,13 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
 
   li.appendChild(headerRow);
 
-  // Dropdown list of tabs (if expanded)
+  // Show nested tabs if expanded
   if (expandedGroups.has(groupName)) {
     const tabUL = document.createElement('ul');
     tabUL.className = 'nested';
-
     tabs.forEach(tab => {
       const tabLI = document.createElement('li');
 
-      // Tab row
       const tabRow = document.createElement('div');
       tabRow.classList.add('header-row');
 
@@ -248,11 +317,9 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
       titleSpan.classList.add('name');
       tabRow.appendChild(titleSpan);
 
-      // Tab buttons container
       const buttonsDivTab = document.createElement('div');
       buttonsDivTab.classList.add('buttons');
 
-      // Open tab button
       const openTabBtn = document.createElement('button');
       openTabBtn.textContent = chrome.i18n.getMessage('openButtonText');
       openTabBtn.classList.add('open-btn');
@@ -263,7 +330,6 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
       });
       buttonsDivTab.appendChild(openTabBtn);
 
-      // Delete tab button
       const deleteTabBtn = document.createElement('button');
       deleteTabBtn.textContent = chrome.i18n.getMessage('deleteButtonText');
       deleteTabBtn.classList.add('delete-btn');
@@ -280,23 +346,17 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
 
       tabRow.appendChild(buttonsDivTab);
       tabLI.appendChild(tabRow);
-
       tabUL.appendChild(tabLI);
     });
-
     li.appendChild(tabUL);
   }
 
-  // Accept drag of tabs onto group to add tab objects
+  // Accept drop of a tab object onto this group
   li.addEventListener('dragover', e => e.preventDefault());
   li.addEventListener('drop', e => {
     e.preventDefault();
     let tabObj;
-    try {
-      tabObj = JSON.parse(e.dataTransfer.getData('application/json'));
-    } catch {
-      return;
-    }
+    try { tabObj = JSON.parse(e.dataTransfer.getData('application/json')); } catch { return; }
     if (tabObj && tabObj.url && !tabs.some(t => t.url === tabObj.url)) {
       storageData.groups[groupName].push(tabObj);
       saveChangesAndRender();
@@ -306,20 +366,15 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
   return li;
 }
 
-/**
- * Create a folder list item.
- * @param {string} folderName 
- * @param {Array<string>} groupNames 
- * @returns {HTMLElement}
- */
+/* ---------------------------
+   DOM item creators (folders panel)
+   --------------------------- */
 function createFolderListItem(folderName, groupNames) {
   const li = document.createElement('li');
 
-  // Header row
   const headerRow = document.createElement('div');
   headerRow.classList.add('header-row');
 
-  // Caret for expand/collapse folder
   const caret = document.createElement('span');
   caret.textContent = expandedFolders.has(folderName) ? '▼' : '▶';
   caret.className = 'caret';
@@ -333,7 +388,6 @@ function createFolderListItem(folderName, groupNames) {
   });
   headerRow.appendChild(caret);
 
-  // Folder name clickable
   const nameSpan = document.createElement('span');
   nameSpan.textContent = folderName;
   nameSpan.classList.add('name');
@@ -346,11 +400,9 @@ function createFolderListItem(folderName, groupNames) {
   });
   headerRow.appendChild(nameSpan);
 
-  // Buttons container
   const buttonsDiv = document.createElement('div');
   buttonsDiv.classList.add('buttons');
 
-  // Open folder button: open tabs of all groups inside folder
   const openBtn = document.createElement('button');
   openBtn.classList.add('open-btn');
   openBtn.textContent = chrome.i18n.getMessage('openButtonText');
@@ -372,8 +424,7 @@ function createFolderListItem(folderName, groupNames) {
   renameBtn.addEventListener('click', e => {
     e.stopPropagation();
     const parent = nameSpan.parentElement;
-    const currentText = folderName;
-    const input = createInlineEditor(currentText, (newName) => {
+    const input = createInlineEditor(folderName, (newName) => {
       if (!newName) {
         alert(chrome.i18n.getMessage('enterFolderName'));
         const folderList = document.getElementById('folder-list');
@@ -398,7 +449,6 @@ function createFolderListItem(folderName, groupNames) {
   });
   buttonsDiv.appendChild(renameBtn);
 
-  // Delete folder button
   const deleteBtn = document.createElement('button');
   deleteBtn.textContent = chrome.i18n.getMessage('deleteButtonText');
   deleteBtn.className = 'delete-group-btn delete-btn';
@@ -414,7 +464,7 @@ function createFolderListItem(folderName, groupNames) {
   headerRow.appendChild(buttonsDiv);
   li.appendChild(headerRow);
 
-  // Dropdown listing groups in folder, with their own dropdowns
+  // Groups inside folder (if expanded)
   if (expandedFolders.has(folderName)) {
     const groupsUL = document.createElement('ul');
     groupsUL.className = 'nested';
@@ -422,7 +472,6 @@ function createFolderListItem(folderName, groupNames) {
     groupNames.slice().sort().forEach(groupName => {
       const tabs = storageData.groups[groupName];
       if (!tabs) return;
-
       const groupLI = createGroupListItemForFolderPanel(folderName, groupName, tabs);
       groupsUL.appendChild(groupLI);
     });
@@ -430,14 +479,9 @@ function createFolderListItem(folderName, groupNames) {
     li.appendChild(groupsUL);
   }
 
-  // Drag and drop folder accepts dragged groups
-  li.addEventListener('dragover', e => {
-    e.preventDefault();
-    li.style.backgroundColor = '#d0e7ff';
-  });
-  li.addEventListener('dragleave', e => {
-    li.style.backgroundColor = '';
-  });
+  // Drag & drop handlers for moving groups into folder
+  li.addEventListener('dragover', e => { e.preventDefault(); li.style.backgroundColor = '#d0e7ff'; });
+  li.addEventListener('dragleave', () => { li.style.backgroundColor = ''; });
   li.addEventListener('drop', e => {
     e.preventDefault();
     li.style.backgroundColor = '';
@@ -454,13 +498,6 @@ function createFolderListItem(folderName, groupNames) {
   return li;
 }
 
-/**
- * Create a group list item inside folder panel.
- * @param {string} folderName 
- * @param {string} groupName 
- * @param {Array} tabs 
- * @returns {HTMLElement}
- */
 function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
   const li = document.createElement('li');
 
@@ -498,7 +535,6 @@ function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
   const buttonsDiv = document.createElement('div');
   buttonsDiv.classList.add('buttons');
 
-  // Open group button
   const openBtn = document.createElement('button');
   openBtn.textContent = chrome.i18n.getMessage('openButtonText');
   openBtn.classList.add('open-btn');
@@ -509,7 +545,7 @@ function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
   });
   buttonsDiv.appendChild(openBtn);
 
-  // Rename group inside folder panel
+  // Rename inside folder panel
   const renameBtn = document.createElement('button');
   renameBtn.className = 'rename-btn';
   renameBtn.textContent = 'Rename';
@@ -517,8 +553,7 @@ function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
   renameBtn.addEventListener('click', e => {
     e.stopPropagation();
     const parent = nameSpan.parentElement;
-    const currentText = groupName;
-    const input = createInlineEditor(currentText, (newName) => {
+    const input = createInlineEditor(groupName, (newName) => {
       if (!newName) {
         alert(chrome.i18n.getMessage('enterGroupName'));
         const folderList = document.getElementById('folder-list');
@@ -545,7 +580,6 @@ function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
   });
   buttonsDiv.appendChild(renameBtn);
 
-  // Remove group from folder
   const removeBtn = document.createElement('button');
   removeBtn.textContent = chrome.i18n.getMessage('removeButtonText');
   removeBtn.className = 'remove-btn';
@@ -560,7 +594,6 @@ function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
   });
   buttonsDiv.appendChild(removeBtn);
 
-  // Delete group completely
   const deleteBtn = document.createElement('button');
   deleteBtn.textContent = chrome.i18n.getMessage('deleteButtonText');
   deleteBtn.className = 'delete-group-btn delete-btn';
@@ -578,13 +611,12 @@ function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
   headerRow.appendChild(buttonsDiv);
   li.appendChild(headerRow);
 
-  // Dropdown tabs if expanded
+  // Dropdown of tabs if expanded
   if (isExpanded) {
     const tabUL = document.createElement('ul');
     tabUL.className = 'nested';
     tabs.forEach(tab => {
       const tabLI = document.createElement('li');
-
       const tabRow = document.createElement('div');
       tabRow.classList.add('header-row');
 
@@ -623,17 +655,17 @@ function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
 
       tabRow.appendChild(buttonsDivTab);
       tabLI.appendChild(tabRow);
-
       tabUL.appendChild(tabLI);
     });
     li.appendChild(tabUL);
   }
+
   return li;
 }
 
-/**
- * Save changes, then re-render groups and folders.
- */
+/* ---------------------------
+   Save and re-render helper
+   --------------------------- */
 function saveChangesAndRender() {
   saveStorage();
   const groupList = document.getElementById('group-list');

@@ -19,7 +19,18 @@
     </div>
 
     <div id="groups">
-      <h2 data-i18n="groupsHeader">Groups</h2>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h2 data-i18n="groupsHeader">Groups</h2>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input id="group-search" type="search" placeholder="Search groups…" />
+          <select id="group-sort" class="select-pill">
+            <option value="alpha-asc">A → Z</option>
+            <option value="alpha-desc">Z → A</option>
+            <option value="size-desc">Largest</option>
+            <option value="size-asc">Smallest</option>
+          </select>
+        </div>
+      </div>
       <ul id="group-list" class="dropzone"></ul>
       <div style="display: flex;">
         <input id="new-group-name" type="text" data-i18n-placeholder="newGroupPlaceholder" placeholder="New group name" />
@@ -28,7 +39,18 @@
     </div>
 
     <div id="folders">
-      <h2 data-i18n="foldersHeader">Folders</h2>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h2 data-i18n="foldersHeader">Folders</h2>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input id="folder-search" type="search" placeholder="Search folders…" />
+          <select id="folder-sort" class="select-pill">
+            <option value="alpha-asc">A → Z</option>
+            <option value="alpha-desc">Z → A</option>
+            <option value="size-desc">Most groups</option>
+            <option value="size-asc">Fewest groups</option>
+          </select>
+        </div>
+      </div>
       <ul id="folder-list" class="dropzone"></ul>
       <div style="display: flex;">
         <input id="new-folder-name" type="text" data-i18n-placeholder="newFolderPlaceholder" placeholder="New folder name" />
@@ -36,8 +58,7 @@
       </div>
     </div>
 
-    <!-- Backup / Restore UI (keeps this separate and minimal) -->
-
+    
 
   </div>
 
@@ -45,18 +66,20 @@
     <h3 data-i18n="footerTitle">Tabby - Double v3.2.1</h3>
     <h3 data-i18n="footerDesc">A tab orginizing tool to keep ur browser orginized and ur ram happy</h3>
     <h5 data-i18n="footerCredit">art made by Lyna</h5>
+    <!-- Backup / Import (kept where you placed it) -->
     <div id="backup" style="flex-basis:100%; margin-top: 10px;">
-      <h2>Backup / Import</h2>
-      <div style="display:flex; gap:12px; align-items:center;">
+      <h2>Backup &amp; Import</h2>
+      <div class="backup-actions">
         <button id="export-backup">Export backup</button>
         <button id="import-backup">Import backup</button>
         <input id="import-file" type="file" accept=".json,application/json" style="display:none" />
-        <span style="color: lightslategray; font-size: 0.9rem;">(Download & restore JSON backup)</span>
+        <small>(Download or restore a JSON backup)</small>
       </div>
     </div>
   </div>
 
   <script type="module" src="src/ui/options.js"></script>
   <script type="module" src="src/ui/importExport.js"></script>
+  <script type="module" src="src/ui/ui-render.js"></script>
 </body>
 </html>
