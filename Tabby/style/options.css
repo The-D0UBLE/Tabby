@@ -158,39 +158,10 @@ ul li:hover {
 /* Header rows inside list items */
 .header-row {
   display: flex;
-  flex-wrap: wrap;        /* allow wrapping */
   align-items: center;
-  justify-content: space-between; /* push buttons to the right */
   width: 100%;
-  gap: 8px;
+  justify-content: space-between;
 }
-
-.header-row .name {
-  flex: 1 1 auto;         /* take remaining space */
-  min-width: 0;           /* needed for ellipsis */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.header-row .buttons {
-  flex-shrink: 0;         /* buttons never shrink */
-}
-
-/* Optional: on very small screens, stack but keep buttons right-aligned */
-@media (max-width: 550px) {
-  .header-row {
-    flex-direction: column;
-    align-items: flex-start; /* keep text at start */
-    gap: 4px;
-  }
-
-  .header-row .buttons {
-    align-self: flex-end;   /* keep buttons at right edge */
-  }
-}
-
-
 
 /* Caret */
 .caret {
@@ -336,10 +307,6 @@ button.delete-btn:hover, button.delete-group-btn:hover {
     inset 4px 4px 8px rgba(255 230 235 / 0.85),
     inset -5px -5px 10px rgba(220 180 185 / 0.4);
   color: #763f45;
-}
-
-#create-group, #create-folder {
-  margin: 10px !important;
 }
 
 /* Input fields */
