@@ -309,6 +309,10 @@ button.delete-btn:hover, button.delete-group-btn:hover {
   color: #763f45;
 }
 
+#create-group, #create-folder {
+  margin: 10px;
+}
+
 /* Input fields */
 #folders input, #groups input {
   padding: 10px 14px;
