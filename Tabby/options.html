@@ -36,14 +36,27 @@
       </div>
     </div>
 
+    <!-- Backup / Restore UI (keeps this separate and minimal) -->
+
+
   </div>
 
   <div id="footer">
     <h3 data-i18n="footerTitle">Tabby - Double v3.2.1</h3>
     <h3 data-i18n="footerDesc">A tab orginizing tool to keep ur browser orginized and ur ram happy</h3>
     <h5 data-i18n="footerCredit">art made by Lyna</h5>
+    <div id="backup" style="flex-basis:100%; margin-top: 10px;">
+      <h2>Backup / Import</h2>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <button id="export-backup">Export backup</button>
+        <button id="import-backup">Import backup</button>
+        <input id="import-file" type="file" accept=".json,application/json" style="display:none" />
+        <span style="color: lightslategray; font-size: 0.9rem;">(Download & restore JSON backup)</span>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="src/ui/options.js"></script>
+  <script type="module" src="src/ui/importExport.js"></script>
 </body>
 </html>

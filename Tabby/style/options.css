@@ -321,3 +321,38 @@ ul::-webkit-scrollbar-thumb {
   0% { opacity: 0; }
   100% { opacity: 1; }
 }
+
+#backup {
+  margin-top: 22px;
+  padding: 16px 18px;
+  background: #ffffff10; /* subtle translucent panel */
+  border: 1px solid #ffffff20;
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
+}
+
+#backup h2 {
+  font-size: 1.2rem;
+  margin: 0 0 10px 0;
+  padding: 0;
+  color: #fff;
+  letter-spacing: 0.4px;
+}
+
+#backup .backup-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+
+#backup button:active {
+  transform: scale(0.97);
+}
+
+#backup small {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  color: #ddd;
+}
