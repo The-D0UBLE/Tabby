@@ -141,20 +141,58 @@ function createInlineEditor(initialValue, onSave, onCancel) {
    --------------------------- */
 export function renderOpenTabs(tabListElement) {
   tabListElement.innerHTML = '';
+
   chrome.tabs.query({ currentWindow: true }, tabs => {
     tabs.forEach(tab => {
       const li = document.createElement('li');
-      li.textContent = tab.title || tab.url;
       li.setAttribute('draggable', 'true');
-      const tabObj = { title: tab.title || tab.url, url: tab.url };
+
+      // Flex row: title + close button
+      li.style.display = 'flex';
+      li.style.alignItems = 'center';
+      li.style.justifyContent = 'space-between';
+      li.style.flexWrap = 'nowrap'; // <- prevent wrapping
+      li.style.padding = '8px 12px';
+      li.style.borderBottom = '1px solid rgba(190, 170, 220, 0.3)';
+      li.style.borderRadius = '8px';
+      li.style.background = 'transparent';
+      li.style.cursor = 'grab';
+
+      const tabObj = { id: tab.id, title: tab.title || tab.url, url: tab.url };
       li.dataset.tab = JSON.stringify(tabObj);
+
+      // Title span
+      const titleSpan = document.createElement('span');
+      titleSpan.textContent = tabObj.title;
+      titleSpan.style.flexGrow = '1';
+      titleSpan.style.overflow = 'hidden';
+      titleSpan.style.textOverflow = 'ellipsis';
+      titleSpan.style.whiteSpace = 'nowrap';
+      li.appendChild(titleSpan);
+
+      // Close button
+      const closeBtn = document.createElement('button');
+      closeBtn.textContent = '✕';
+      closeBtn.style.marginLeft = '10px';
+      closeBtn.style.cursor = 'pointer';
+      closeBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        chrome.tabs.remove(tabObj.id);
+        li.remove();
+      });
+      li.appendChild(closeBtn);
+
+      // Drag events
       li.addEventListener('dragstart', e => {
         e.dataTransfer.setData('application/json', li.dataset.tab);
       });
+
       tabListElement.appendChild(li);
     });
   });
 }
+
+
 
 /* ---------------------------
    Render: Groups (top-level panel)

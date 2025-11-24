@@ -216,6 +216,13 @@ ul.nested li > .header-row {
   white-space: nowrap;
 }
 
+#tab-list li {
+  flex-direction: row; /* make children horizontal */
+  justify-content: space-between; /* title on left, button on right */
+  align-items: center;
+}
+
+
 /* Name and text */
 .name {
   flex-grow: 1;
