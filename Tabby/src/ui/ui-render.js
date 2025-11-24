@@ -3,7 +3,7 @@
  * Contains DOM rendering logic for groups, folders, and tabs.
  */
 
-import { storageData } from '../background/storage.js';
+import { storageData, saveStorage } from '../background/storage.js';
 import { deleteGroup, deleteFolder, removeGroupFromFolder, moveGroupToFolder } from '../background/tabManager.js';
 
 /**
@@ -83,7 +83,9 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
     e.stopPropagation();
     if (expandedGroups.has(groupName)) expandedGroups.delete(groupName);
     else expandedGroups.add(groupName);
-    renderGroups(li.parentElement || document.createElement('ul'));
+    // Always re-render the top-level group list
+    const groupList = document.getElementById('group-list');
+    if (groupList) renderGroups(groupList);
   });
   headerRow.appendChild(caret);
 
@@ -95,7 +97,8 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
     e.stopPropagation();
     if (expandedGroups.has(groupName)) expandedGroups.delete(groupName);
     else expandedGroups.add(groupName);
-    renderGroups(li.parentElement || document.createElement('ul'));
+    const groupList = document.getElementById('group-list');
+    if (groupList) renderGroups(groupList);
   });
   headerRow.appendChild(nameSpan);
 
@@ -122,7 +125,8 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
   deleteBtn.addEventListener('click', e => {
     e.stopPropagation();
     deleteGroup(groupName);
-    renderGroups(li.parentElement || document.createElement('ul'));
+    const groupList = document.getElementById('group-list');
+    if (groupList) renderGroups(groupList);
   });
   buttonsDiv.appendChild(deleteBtn);
 
@@ -234,7 +238,8 @@ function createFolderListItem(folderName, groupNames) {
     e.stopPropagation();
     if (expandedFolders.has(folderName)) expandedFolders.delete(folderName);
     else expandedFolders.add(folderName);
-    renderFolders(li.parentElement || document.createElement('ul'));
+    const folderList = document.getElementById('folder-list');
+    if (folderList) renderFolders(folderList);
   });
   headerRow.appendChild(caret);
 
@@ -246,7 +251,8 @@ function createFolderListItem(folderName, groupNames) {
     e.stopPropagation();
     if (expandedFolders.has(folderName)) expandedFolders.delete(folderName);
     else expandedFolders.add(folderName);
-    renderFolders(li.parentElement || document.createElement('ul'));
+    const folderList = document.getElementById('folder-list');
+    if (folderList) renderFolders(folderList);
   });
   headerRow.appendChild(nameSpan);
 
@@ -276,7 +282,8 @@ function createFolderListItem(folderName, groupNames) {
   deleteBtn.addEventListener('click', e => {
     e.stopPropagation();
     deleteFolder(folderName);
-    renderFolders(li.parentElement || document.createElement('ul'));
+    const folderList = document.getElementById('folder-list');
+    if (folderList) renderFolders(folderList);
   });
   buttonsDiv.appendChild(deleteBtn);
 
@@ -313,8 +320,10 @@ function createFolderListItem(folderName, groupNames) {
     const groupName = e.dataTransfer.getData('text/plain');
     if (groupName && storageData.groups[groupName]) {
       moveGroupToFolder(groupName, folderName);
-      renderFolders(li.parentElement || document.createElement('ul'));
-      renderGroups(document.getElementById('group-list'));
+      const folderList = document.getElementById('folder-list');
+      if (folderList) renderFolders(folderList);
+      const groupList = document.getElementById('group-list');
+      if (groupList) renderGroups(groupList);
     }
   });
 
@@ -346,8 +355,7 @@ function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
     if (expandedSet.has(groupName)) expandedSet.delete(groupName);
     else expandedSet.add(groupName);
     const folderList = document.getElementById('folder-list');
-    renderFolders(folderList);
-
+    if (folderList) renderFolders(folderList);
   });
   headerRow.appendChild(caret);
 
@@ -359,7 +367,7 @@ function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
     if (expandedSet.has(groupName)) expandedSet.delete(groupName);
     else expandedSet.add(groupName);
     const folderList = document.getElementById('folder-list');
-    renderFolders(folderList);
+    if (folderList) renderFolders(folderList);
   });
   headerRow.appendChild(nameSpan);
 
@@ -387,7 +395,8 @@ function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
     removeGroupFromFolder(groupName, folderName);
     const expandedSetLocal = getExpandedFolderGroups(folderName);
     expandedSetLocal.delete(groupName);
-    renderFolders(li.parentElement || document.createElement('ul'));
+    const folderList = document.getElementById('folder-list');
+    if (folderList) renderFolders(folderList);
   });
   buttonsDiv.appendChild(removeBtn);
 
@@ -399,8 +408,10 @@ function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
   deleteBtn.addEventListener('click', e => {
     e.stopPropagation();
     deleteGroup(groupName);
-    renderGroups(document.getElementById('group-list'));
-    renderFolders(li.parentElement || document.createElement('ul'));
+    const groupList = document.getElementById('group-list');
+    if (groupList) renderGroups(groupList);
+    const folderList = document.getElementById('folder-list');
+    if (folderList) renderFolders(folderList);
   });
   buttonsDiv.appendChild(deleteBtn);
 
@@ -470,5 +481,3 @@ function saveChangesAndRender() {
   if (groupList) renderGroups(groupList);
   if (folderList) renderFolders(folderList);
 }
-
-import { saveStorage } from '../background/storage.js';
