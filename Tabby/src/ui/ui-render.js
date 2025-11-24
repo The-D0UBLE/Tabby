@@ -1,10 +1,19 @@
 /**
  * @module ui-render
  * Contains DOM rendering logic for groups, folders, and tabs.
+ *
+ * Adds inline rename functionality for groups and folders.
  */
 
 import { storageData, saveStorage } from '../background/storage.js';
-import { deleteGroup, deleteFolder, removeGroupFromFolder, moveGroupToFolder } from '../background/tabManager.js';
+import {
+  deleteGroup,
+  deleteFolder,
+  removeGroupFromFolder,
+  moveGroupToFolder,
+  renameGroup,
+  renameFolder
+} from '../background/tabManager.js';
 
 /**
  * Keeps track of expanded groups and folders state for UI.
@@ -62,6 +71,47 @@ export function renderFolders(folderListElement) {
 }
 
 /**
+ * Helper: replace a name span with an inline input for editing.
+ * Calls the provided `onSave(newValue)` when user confirms (Enter or blur).
+ * Uses Escape to cancel.
+ */
+function createInlineEditor(initialValue, onSave, onCancel) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = initialValue;
+  input.className = 'inline-rename-input';
+  input.style.padding = '6px 10px';
+  input.style.borderRadius = '8px';
+  input.style.border = '1px solid rgba(150,120,190,0.25)';
+  input.style.fontSize = '0.95rem';
+  input.style.width = '100%';
+  // Handle keys
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      if (onCancel) onCancel();
+    }
+  });
+  input.addEventListener('blur', () => {
+    const newVal = input.value.trim();
+    if (newVal === initialValue) {
+      if (onCancel) onCancel();
+      return;
+    }
+    if (newVal.length === 0) {
+      // Let caller handle empty-name validation
+      if (onSave) onSave(newVal);
+      return;
+    }
+    if (onSave) onSave(newVal);
+  });
+  return input;
+}
+
+/**
  * Create a group list item (standalone/groups panel).
  * @param {string} groupName 
  * @param {Array} tabs 
@@ -83,7 +133,6 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
     e.stopPropagation();
     if (expandedGroups.has(groupName)) expandedGroups.delete(groupName);
     else expandedGroups.add(groupName);
-    // Always re-render the top-level group list
     const groupList = document.getElementById('group-list');
     if (groupList) renderGroups(groupList);
   });
@@ -116,6 +165,47 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
     tabs.forEach(tab => chrome.tabs.create({ url: tab.url }));
   });
   buttonsDiv.appendChild(openBtn);
+
+  // Rename group button
+  const renameBtn = document.createElement('button');
+  renameBtn.className = 'rename-btn';
+  renameBtn.textContent = 'Rename';
+  renameBtn.title = 'Rename group';
+  renameBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    // Replace nameSpan with input
+    const parent = nameSpan.parentElement;
+    const currentText = groupName;
+    const input = createInlineEditor(currentText, (newName) => {
+      // onSave
+      if (!newName) {
+        alert(chrome.i18n.getMessage('enterGroupName'));
+        // re-render to restore
+        const groupList = document.getElementById('group-list');
+        if (groupList) renderGroups(groupList);
+        return;
+      }
+      const success = renameGroup(groupName, newName);
+      if (success) {
+        const groupList = document.getElementById('group-list');
+        const folderList = document.getElementById('folder-list');
+        if (groupList) renderGroups(groupList);
+        if (folderList) renderFolders(folderList);
+      } else {
+        // renameGroup already showed alert for conflict
+        const groupList = document.getElementById('group-list');
+        if (groupList) renderGroups(groupList);
+      }
+    }, () => {
+      // onCancel
+      const groupList = document.getElementById('group-list');
+      if (groupList) renderGroups(groupList);
+    });
+    parent.replaceChild(input, nameSpan);
+    input.focus();
+    input.select();
+  });
+  buttonsDiv.appendChild(renameBtn);
 
   // Delete group button
   const deleteBtn = document.createElement('button');
@@ -274,6 +364,40 @@ function createFolderListItem(folderName, groupNames) {
   });
   buttonsDiv.appendChild(openBtn);
 
+  // Rename folder button
+  const renameBtn = document.createElement('button');
+  renameBtn.className = 'rename-btn';
+  renameBtn.textContent = 'Rename';
+  renameBtn.title = 'Rename folder';
+  renameBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const parent = nameSpan.parentElement;
+    const currentText = folderName;
+    const input = createInlineEditor(currentText, (newName) => {
+      if (!newName) {
+        alert(chrome.i18n.getMessage('enterFolderName'));
+        const folderList = document.getElementById('folder-list');
+        if (folderList) renderFolders(folderList);
+        return;
+      }
+      const success = renameFolder(folderName, newName);
+      if (success) {
+        const folderList = document.getElementById('folder-list');
+        if (folderList) renderFolders(folderList);
+      } else {
+        const folderList = document.getElementById('folder-list');
+        if (folderList) renderFolders(folderList);
+      }
+    }, () => {
+      const folderList = document.getElementById('folder-list');
+      if (folderList) renderFolders(folderList);
+    });
+    parent.replaceChild(input, nameSpan);
+    input.focus();
+    input.select();
+  });
+  buttonsDiv.appendChild(renameBtn);
+
   // Delete folder button
   const deleteBtn = document.createElement('button');
   deleteBtn.textContent = chrome.i18n.getMessage('deleteButtonText');
@@ -384,6 +508,42 @@ function createGroupListItemForFolderPanel(folderName, groupName, tabs) {
     tabs.forEach(tab => chrome.tabs.create({ url: tab.url }));
   });
   buttonsDiv.appendChild(openBtn);
+
+  // Rename group inside folder panel
+  const renameBtn = document.createElement('button');
+  renameBtn.className = 'rename-btn';
+  renameBtn.textContent = 'Rename';
+  renameBtn.title = 'Rename group';
+  renameBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const parent = nameSpan.parentElement;
+    const currentText = groupName;
+    const input = createInlineEditor(currentText, (newName) => {
+      if (!newName) {
+        alert(chrome.i18n.getMessage('enterGroupName'));
+        const folderList = document.getElementById('folder-list');
+        if (folderList) renderFolders(folderList);
+        return;
+      }
+      const success = renameGroup(groupName, newName);
+      if (success) {
+        const folderList = document.getElementById('folder-list');
+        const groupList = document.getElementById('group-list');
+        if (folderList) renderFolders(folderList);
+        if (groupList) renderGroups(groupList);
+      } else {
+        const folderList = document.getElementById('folder-list');
+        if (folderList) renderFolders(folderList);
+      }
+    }, () => {
+      const folderList = document.getElementById('folder-list');
+      if (folderList) renderFolders(folderList);
+    });
+    parent.replaceChild(input, nameSpan);
+    input.focus();
+    input.select();
+  });
+  buttonsDiv.appendChild(renameBtn);
 
   // Remove group from folder
   const removeBtn = document.createElement('button');
