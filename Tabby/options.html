@@ -22,12 +22,12 @@
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
         <h2 data-i18n="groupsHeader">Groups</h2>
         <div style="display:flex; gap:8px; align-items:center;">
-          <input id="group-search" type="search" data-i18n-placeholder="searchGroupsText" />
+          <input id="group-search" type="search" placeholder="Search groups…" />
           <select id="group-sort" class="select-pill">
             <option value="alpha-asc">A → Z</option>
             <option value="alpha-desc">Z → A</option>
-            <option data-i18n="largestText" value="size-desc">Largest</option>
-            <option data-i18n="smallestText"value="size-asc">Smallest</option>
+            <option value="size-desc">Largest</option>
+            <option value="size-asc">Smallest</option>
           </select>
         </div>
       </div>
@@ -42,12 +42,12 @@
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
         <h2 data-i18n="foldersHeader">Folders</h2>
         <div style="display:flex; gap:8px; align-items:center;">
-          <input id="folder-search" type="search" data-i18n-placeholder="searchFolderText" />
+          <input id="folder-search" type="search" placeholder="Search folders…" />
           <select id="folder-sort" class="select-pill">
             <option value="alpha-asc">A → Z</option>
             <option value="alpha-desc">Z → A</option>
-            <option data-i18n="mostGroupText" value="size-desc">Most groups</option>
-            <option data-i18n="fewestGroupText" value="size-asc">Fewest groups</option>
+            <option value="size-desc">Most groups</option>
+            <option value="size-asc">Fewest groups</option>
           </select>
         </div>
       </div>
@@ -70,10 +70,10 @@
     </div>
     <!-- Backup / Import (kept where you placed it) -->
     <div id="backup" style="flex-basis:100%; margin-top: 10px;">
-      <h2 data-i18n="backupText">Backup &amp; Import</h2>
+      <h2>Backup &amp; Import</h2>
       <div class="backup-actions">
-        <button data-i18n="exportText"  id="export-backup">Export backup</button>
-        <button data-i18n="importText" id="import-backup">Import backup</button>
+        <button id="export-backup">Export backup</button>
+        <button id="import-backup">Import backup</button>
         <input id="import-file" type="file" accept=".json,application/json" style="display:none" />
       </div>
     </div>

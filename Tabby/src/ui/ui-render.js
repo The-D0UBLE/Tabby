@@ -285,7 +285,7 @@ function createGroupListItemForGroupsPanel(groupName, tabs) {
   // Rename button
   const renameBtn = document.createElement('button');
   renameBtn.className = 'rename-btn';
-  renameBtn.textContent = chrome.i18n.getMessage('renameText');
+  renameBtn.textContent = 'Rename';
   renameBtn.title = 'Rename group';
   renameBtn.addEventListener('click', e => {
     e.stopPropagation();

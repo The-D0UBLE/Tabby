@@ -59,17 +59,7 @@
   
   "popupTitle": { "message": "Tabby" },
   "saveGroupButton": { "message": "Save" },
-  "openManagerLink": { "message": "Open Tabby…" },
+  "openManagerLink": { "message": "Open Tabby…" }
 
-  "exportText": {"message": "Export"},
-  "importText": {"message": "Import"},
 
-  "largestText": {"message": "Largest"},
-  "smallestText": {"message": "Smallest"},
-
-  "searchGroupsText": {"message": "Search groups…"},
-  "searchFolderText": {"message": "Search folders…"},
-
-  "backupText": { "message": "Backup options"},
-  "renameText": { "message": "Rename" }
 }
