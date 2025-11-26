@@ -59,5 +59,22 @@
   
   "popupTitle": { "message": "Tabby" },
   "saveGroupButton": { "message": "Sauvegarder" },
-  "openManagerLink": { "message": "Ouvrir Tabby…" }
+  "openManagerLink": { "message": "Ouvrir Tabby…" },
+
+  "largestText": { "message": "du plus volumineux" },
+  "smallestText": { "message": "au moins volumineux" },
+
+  "exportText": { "message": "Exporter" },
+  "importText": { "message": "Importer" },
+
+
+  "mostGroupText": { "message": "Plus de groupe" },
+  "fewestGroupText": { "message": "Moins de groupe" },
+
+  "searchGroupsText": {"message": "Rechercher groupes…"},
+  "searchFolderText": {"message": "Rechercher dossier…"},
+
+  "backupText": { "message": "option de sauvegarde"},
+
+  "renameText": { "message": "Renommer" }
 }
